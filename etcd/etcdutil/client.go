@@ -5,7 +5,9 @@ package etcdutil
 
 import (
 	"errors"
+	"fmt"
 	"github.com/coreos/go-etcd/etcd"
+	"github.com/kelseyhightower/confd/log"
 	"strings"
 )
 
@@ -62,9 +64,10 @@ func nodeWalk(node *etcd.Node, prefix string, vars map[string]interface{}) error
 		if !node.Dir {
 			vars[key] = node.Value
 		} else {
-			vars[key] = node.Nodes
+			var dir = make(map[string]interface{})
+			vars[key] = dir
 			for _, node := range node.Nodes {
-				nodeWalk(&node, prefix, vars)
+				nodeWalk(&node, prefix, dir)
 			}
 		}
 	}
@@ -76,5 +79,9 @@ func nodeWalk(node *etcd.Node, prefix string, vars map[string]interface{}) error
 func pathToKey(key, prefix string) string {
 	key = strings.TrimPrefix(key, prefix)
 	key = strings.TrimPrefix(key, "/")
+	var path = strings.Split(key, "/")
+	var index = len(path) - 1
+	key = path[index]
+	log.Notice(key)
 	return replacer.Replace(key)
 }
