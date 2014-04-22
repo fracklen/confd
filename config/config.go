@@ -25,6 +25,7 @@ var (
 	etcdNodes    Nodes
 	etcdScheme   string
 	interval     int
+	wait         bool
 	noop         bool
 	prefix       string
 	quiet        bool
@@ -47,6 +48,7 @@ type confd struct {
 	EtcdNodes    []string `toml:"etcd_nodes"`
 	EtcdScheme   string   `toml:"etcd_scheme"`
 	Interval     int      `toml:"interval"`
+	Wait         bool     `toml:"wait"`
 	Noop         bool     `toml:"noop"`
 	Prefix       string   `toml:"prefix"`
 	Quiet        bool     `toml:"quiet"`
@@ -68,6 +70,7 @@ func init() {
 	flag.BoolVar(&quiet, "quiet", false, "enable quiet logging. Only error messages are printed.")
 	flag.StringVar(&srvDomain, "srv-domain", "", "the domain to query for the etcd SRV record, i.e. example.com")
 	flag.BoolVar(&verbose, "verbose", false, "enable verbose logging")
+	flag.BoolVar(&wait, "wait", false, "enable waiting")
 }
 
 // LoadConfig initializes the confd configuration by first setting defaults,
@@ -113,7 +116,7 @@ func ClientKey() string {
 
 // ClientCaKeys returns the client CA certificates
 func ClientCaKeys() string {
-        return config.Confd.ClientCaKeys
+	return config.Confd.ClientCaKeys
 }
 
 // ConfDir returns the path to the confd config dir.
@@ -157,6 +160,10 @@ func Verbose() bool {
 	return config.Confd.Verbose
 }
 
+func Wait() bool {
+	return config.Confd.Wait
+}
+
 // SetConfDir sets the confd conf dir.
 func SetConfDir(path string) {
 	config.Confd.ConfDir = path
@@ -190,6 +197,7 @@ func setDefaults() {
 			Prefix:     "/",
 			EtcdNodes:  []string{"127.0.0.1:4001"},
 			EtcdScheme: "http",
+			Wait:       false,
 		},
 	}
 }
@@ -278,5 +286,7 @@ func setConfigFromFlag(f *flag.Flag) {
 		config.Confd.SRVDomain = srvDomain
 	case "verbose":
 		config.Confd.Verbose = verbose
+	case "wait":
+		config.Confd.Wait = true
 	}
 }

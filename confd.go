@@ -64,7 +64,17 @@ func main() {
 			}
 			os.Exit(0)
 		}
-		time.Sleep(time.Duration(config.Interval()) * time.Second)
+		timeoutChannel := make(<-chan time.Time)
+		switch config.Wait() {
+		case true:
+			timeoutChannel = nil
+		case false:
+			timeoutChannel = time.After(time.Duration(config.Interval()) * time.Second)
+		}
+		waitErrors := template.WaitForResourceChange(etcdClient, timeoutChannel)
+		if len(waitErrors) > 0 {
+			os.Exit(1)
+		}
 	}
 }
 

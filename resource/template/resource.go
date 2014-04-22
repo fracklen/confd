@@ -17,6 +17,7 @@ import (
 	"strconv"
 	"syscall"
 	"text/template"
+	"time"
 
 	"github.com/BurntSushi/toml"
 	"github.com/kelseyhightower/confd/config"
@@ -89,7 +90,7 @@ func (t *TemplateResource) createStageFile() error {
 		os.Remove(temp.Name())
 		return err
 	}
-        defer temp.Close()
+	defer temp.Close()
 	log.Debug("Compiling source template " + t.Src)
 	tplFuncMap := make(template.FuncMap)
 	tplFuncMap["Base"] = path.Base
@@ -259,6 +260,49 @@ func ProcessTemplateResources(c etcdutil.EtcdClient) []error {
 		}
 		log.Debug("Processing of template resource " + p + " complete")
 	}
+	return runErrors
+}
+
+// ProcessTemplateResources is a convenience function that loads all the
+// template resources and processes them serially. Called from main.
+// It returns a list of errors if any.
+func WaitForResourceChange(c etcdutil.EtcdClient, timeout <-chan time.Time) []error {
+	runErrors := make([]error, 0)
+	var err error
+	if c == nil {
+		runErrors = append(runErrors, errors.New("An etcd client is required"))
+		return runErrors
+	}
+	log.Debug("Loading template resources from confdir " + config.ConfDir())
+	if !isFileExist(config.ConfDir()) {
+		log.Warning(fmt.Sprintf("Cannot load template resources confdir '%s' does not exist", config.ConfDir()))
+		return runErrors
+	}
+	paths, err := filepath.Glob(filepath.Join(config.ConfigDir(), "*toml"))
+	if err != nil {
+		runErrors = append(runErrors, err)
+		return runErrors
+	}
+	updated := make(chan bool)
+
+	for _, p := range paths {
+		t, err := NewTemplateResourceFromPath(p, c)
+		if err != nil {
+			runErrors = append(runErrors, err)
+			log.Error(err.Error())
+			continue
+		}
+		for _, key := range t.Keys {
+			go etcdutil.Watch(c, key, true, updated)
+		}
+	}
+	select {
+	case <-updated:
+		log.Debug(fmt.Sprintf("Resource changed: %+v", updated))
+	case <-timeout:
+		log.Debug("Interval timeout")
+	}
+
 	return runErrors
 }
 

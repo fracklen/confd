@@ -34,6 +34,8 @@ func NewEtcdClient(machines []string, cert, key string, caCert string) (*etcd.Cl
 
 type EtcdClient interface {
 	Get(key string, sort bool, recursive bool) (*etcd.Response, error)
+	Watch(prefix string, waitIndex uint64, recursive bool,
+		receiver chan *etcd.Response, stop chan bool) (*etcd.Response, error)
 }
 
 // GetValues queries etcd for keys prefixed by prefix.
@@ -55,6 +57,18 @@ func GetValues(c EtcdClient, prefix string, keys []string) (map[string]interface
 		}
 	}
 	return vars, nil
+}
+
+func Watch(c EtcdClient, key string, recursive bool, receiver chan bool) error {
+	for {
+		resp, err := c.Watch(key, 0, recursive, nil, nil)
+		log.Notice(fmt.Sprintf("Watch returned %+v", resp))
+		if err != nil {
+			return err
+		}
+		receiver <- true
+	}
+	return nil
 }
 
 // nodeWalk recursively descends nodes, updating vars.
