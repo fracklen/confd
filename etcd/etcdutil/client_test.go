@@ -15,13 +15,13 @@ type PathToKeyTest struct {
 
 var pathToKeyTests = []PathToKeyTest{
 	// Without prefix
-	{"/nginx/port", "", "nginx_port"},
-	{"/nginx/worker_processes", "", "nginx_worker_processes"},
-	{"/foo/bar/mat/zoo", "", "foo_bar_mat_zoo"},
+	{"/nginx/port", "", "port"},
+	{"/nginx/worker_processes", "", "worker_processes"},
+	{"/foo/bar/mat/zoo", "", "zoo"},
 	// With prefix
-	{"/prefix/nginx/port", "/prefix", "nginx_port"},
+	{"/prefix/nginx/port", "/prefix", "port"},
 	// With prefix and trailing slash
-	{"/prefix/nginx/port", "/prefix/", "nginx_port"},
+	{"/prefix/nginx/port", "/prefix/", "port"},
 }
 
 func TestPathToKey(t *testing.T) {
@@ -34,6 +34,25 @@ func TestPathToKey(t *testing.T) {
 	}
 }
 
+type LastUrlPartTest struct {
+	key, expected string
+}
+
+var lastUrlPartTests = []LastUrlPartTest{
+	{"/foo", "foo"},
+	{"/foo/bar/baz", "baz"},
+}
+
+func TestLastUrlPart(t *testing.T) {
+	for _, pt := range lastUrlPartTests {
+		result := lastUrlPart(pt.key)
+		if result != pt.expected {
+			t.Errorf("Expected lastUrlPart(%s) to == %s, got %s",
+				pt.key, pt.expected, result)
+		}
+	}
+}
+
 func TestGetValues(t *testing.T) {
 	// Use stub etcd client.
 	c := etcdtest.NewClient()
@@ -41,15 +60,15 @@ func TestGetValues(t *testing.T) {
 	fooResp := &etcd.Response{
 		Action: "GET",
 		Node: &etcd.Node{
-			Key: "/foo",
-			Dir: true,
+			Key:   "/foo",
+			Dir:   true,
 			Value: "",
 			Nodes: etcd.Nodes{
-				etcd.Node{Key: "/foo/one",Dir: false,Value: "one"},
+				etcd.Node{Key: "/foo/one", Dir: false, Value: "one"},
 				etcd.Node{Key: "foo/two", Dir: false, Value: "two"},
 				etcd.Node{
-					Key: "/foo/three",
-					Dir: true,
+					Key:   "/foo/three",
+					Dir:   true,
 					Value: "",
 					Nodes: etcd.Nodes{
 						etcd.Node{Key: "/foo/three/bar", Value: "three_bar", Dir: false},
@@ -60,14 +79,14 @@ func TestGetValues(t *testing.T) {
 	}
 	quuxResp := &etcd.Response{
 		Action: "GET",
-		Node: &etcd.Node{Key:"/quux", Dir: false, Value: "foo"},
+		Node:   &etcd.Node{Key: "/quux", Dir: false, Value: "foo"},
 	}
 	nginxResp := &etcd.Response{
 		Action: "GET",
 		Node: &etcd.Node{
-			Key: "/nginx",
+			Key:   "/nginx",
 			Value: "",
-			Dir: true,
+			Dir:   true,
 			Nodes: etcd.Nodes{
 				etcd.Node{Key: "/nginx/port", Dir: false, Value: "443"},
 				etcd.Node{Key: "/nginx/worker_processes", Dir: false, Value: "4"},
@@ -83,15 +102,21 @@ func TestGetValues(t *testing.T) {
 	if err != nil {
 		t.Error(err.Error())
 	}
-	if values["nginx_port"] != "443" {
-		t.Errorf("Expected nginx_port to == 443, got %s", values["nginx_port"])
+
+	nginxDict := values["nginx"].(map[string]interface{})
+	if nginxDict["port"] != "443" {
+		t.Errorf("Expected nginx_port to == 443, got %s", nginxDict["port"])
 	}
-	if values["nginx_worker_processes"] != "4" {
-		t.Errorf("Expected nginx_worker_processes == 4, got %s", values["nginx_worker_processes"])
+	if nginxDict["worker_processes"] != "4" {
+		t.Errorf("Expected nginx_worker_processes == 4, got %s", nginxDict["worker_processes"])
 	}
-	if values["foo_three_bar"] != "three_bar" {
-		t.Errorf("Expected foo_three_bar == three_bar, got %s", values["foo_three_bar"])
+
+	fooDict := values["foo"].(map[string]interface{})
+	threeDict := fooDict["three"].(map[string]interface{})
+	if threeDict["bar"] != "three_bar" {
+		t.Errorf("Expected foo_three_bar == three_bar, got %s", threeDict["bar"])
 	}
+
 	if values["quux"] != "foo" {
 		t.Errorf("Expected quux == foo, got %s", values["quux"])
 	}
