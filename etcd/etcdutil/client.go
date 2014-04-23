@@ -93,9 +93,11 @@ func nodeWalk(node *etcd.Node, prefix string, vars map[string]interface{}) error
 func pathToKey(key, prefix string) string {
 	key = strings.TrimPrefix(key, prefix)
 	key = strings.TrimPrefix(key, "/")
-	var path = strings.Split(key, "/")
-	var index = len(path) - 1
-	key = path[index]
-	log.Notice(key)
-	return replacer.Replace(key)
+	return replacer.Replace(lastUrlPart(key))
+}
+
+func lastUrlPart(key string) string {
+	path := strings.Split(key, "/")
+	index := len(path) - 1
+	return path[index]
 }
