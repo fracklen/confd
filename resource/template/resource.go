@@ -283,7 +283,9 @@ func WaitForResourceChange(c etcdutil.EtcdClient, timeout <-chan time.Time) []er
 		runErrors = append(runErrors, err)
 		return runErrors
 	}
+
 	updated := make(chan bool)
+	stopChan := make(chan bool)
 
 	for _, p := range paths {
 		t, err := NewTemplateResourceFromPath(p, c)
@@ -293,7 +295,7 @@ func WaitForResourceChange(c etcdutil.EtcdClient, timeout <-chan time.Time) []er
 			continue
 		}
 		for _, key := range t.Keys {
-			go etcdutil.Watch(c, key, true, updated)
+			go etcdutil.Watch(c, key, true, updated, stopChan)
 		}
 	}
 	select {
@@ -302,6 +304,7 @@ func WaitForResourceChange(c etcdutil.EtcdClient, timeout <-chan time.Time) []er
 	case <-timeout:
 		log.Debug("Interval timeout")
 	}
+	close(stopChan)
 
 	return runErrors
 }

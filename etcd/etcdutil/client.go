@@ -5,9 +5,7 @@ package etcdutil
 
 import (
 	"errors"
-	"fmt"
 	"github.com/coreos/go-etcd/etcd"
-	"github.com/kelseyhightower/confd/log"
 	"strings"
 )
 
@@ -59,10 +57,9 @@ func GetValues(c EtcdClient, prefix string, keys []string) (map[string]interface
 	return vars, nil
 }
 
-func Watch(c EtcdClient, key string, recursive bool, receiver chan bool) error {
+func Watch(c EtcdClient, key string, recursive bool, receiver chan bool, stopChan chan bool) error {
 	for {
-		resp, err := c.Watch(key, 0, recursive, nil, nil)
-		log.Notice(fmt.Sprintf("Watch returned %+v", resp))
+		_, err := c.Watch(key, 0, recursive, nil, stopChan)
 		if err != nil {
 			return err
 		}
